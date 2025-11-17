@@ -34,6 +34,14 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "./ui/sheet";
 
 type QrConfig = {
   value: string;
@@ -179,137 +187,164 @@ export default function QrGenerator() {
     includeMargin: true,
   };
 
+  const CustomizeContent = () => (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <Label>Size: {config.size}px</Label>
+        <Slider
+          value={[config.size]}
+          onValueChange={(v) => setConfig({ ...config, size: v[0] })}
+          min={64}
+          max={1024}
+          step={8}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Padding: {config.marginSize}px</Label>
+        <Slider
+          value={[config.marginSize]}
+          onValueChange={(v) =>
+            setConfig({ ...config, marginSize: v[0] })
+          }
+          min={0}
+          max={40}
+          step={1}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Foreground</Label>
+          <Input
+            type="color"
+            value={config.fgColor}
+            onChange={(e) =>
+              setConfig({ ...config, fgColor: e.target.value })
+            }
+            className="p-1"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Background</Label>
+          <Input
+            type="color"
+            value={config.bgColor}
+            onChange={(e) =>
+              setConfig({ ...config, bgColor: e.target.value })
+            }
+            className="p-1"
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Image Format</Label>
+        <Select
+          value={format}
+          onValueChange={(v) => setFormat(v as Format)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select a format" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="png">PNG</SelectItem>
+            <SelectItem value="jpeg">JPEG</SelectItem>
+            <SelectItem value="svg">SVG</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div className="flex flex-col gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between font-headline">
-              <div className="flex items-center gap-2">
-                <QrCode className="text-primary" />
-                Your Data
-              </div>
-              <Button variant="ghost" size="icon">
-                <Settings className="h-5 w-5" />
-              </Button>
-            </CardTitle>
-            <CardDescription>
-              Enter text for single or multiple QR codes.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs
-              value={mode}
-              onValueChange={(v) => setMode(v as "single" | "multi")}
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="single">
-                  <FileText className="mr-2 h-4 w-4" /> Single
-                </TabsTrigger>
-                <TabsTrigger value="multi">
-                  <Files className="mr-2 h-4 w-4" /> Multiple
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="single" className="mt-4">
-                <Label htmlFor="single-text">URL or Text</Label>
-                <Input
-                  id="single-text"
-                  value={singleText}
-                  onChange={(e) => setSingleText(e.target.value)}
-                  placeholder="https://your-link.com"
-                />
-              </TabsContent>
-              <TabsContent value="multi" className="mt-4">
-                <Label htmlFor="multi-text">
-                  URLs or Text (one per line)
-                </Label>
-                <Textarea
-                  id="multi-text"
-                  value={multiText}
-                  onChange={(e) => setMultiText(e.target.value)}
-                  placeholder="https://link1.com&#10;https://link2.com"
-                  rows={5}
-                />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-headline">
-              <Brush className="text-primary" />
-              Customize
-            </CardTitle>
-            <CardDescription>
-              Style your QR code to match your brand.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label>Size: {config.size}px</Label>
-              <Slider
-                value={[config.size]}
-                onValueChange={(v) => setConfig({ ...config, size: v[0] })}
-                min={64}
-                max={1024}
-                step={8}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Padding: {config.marginSize}px</Label>
-              <Slider
-                value={[config.marginSize]}
-                onValueChange={(v) =>
-                  setConfig({ ...config, marginSize: v[0] })
-                }
-                min={0}
-                max={40}
-                step={1}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Foreground</Label>
-                <Input
-                  type="color"
-                  value={config.fgColor}
-                  onChange={(e) =>
-                    setConfig({ ...config, fgColor: e.target.value })
-                  }
-                  className="p-1"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Background</Label>
-                <Input
-                  type="color"
-                  value={config.bgColor}
-                  onChange={(e) =>
-                    setConfig({ ...config, bgColor: e.target.value })
-                  }
-                  className="p-1"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Image Format</Label>
-              <Select
-                value={format}
-                onValueChange={(v) => setFormat(v as Format)}
+        <Sheet>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between font-headline">
+                <div className="flex items-center gap-2">
+                  <QrCode className="text-primary" />
+                  Your Data
+                </div>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+              </CardTitle>
+              <CardDescription>
+                Enter text for single or multiple QR codes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs
+                value={mode}
+                onValueChange={(v) => setMode(v as "single" | "multi")}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="png">PNG</SelectItem>
-                  <SelectItem value="jpeg">JPEG</SelectItem>
-                  <SelectItem value="svg">SVG</SelectItem>
-                </SelectContent>
-              </Select>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="single">
+                    <FileText className="mr-2 h-4 w-4" /> Single
+                  </TabsTrigger>
+                  <TabsTrigger value="multi">
+                    <Files className="mr-2 h-4 w-4" /> Multiple
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="single" className="mt-4">
+                  <Label htmlFor="single-text">URL or Text</Label>
+                  <Input
+                    id="single-text"
+                    value={singleText}
+                    onChange={(e) => setSingleText(e.target.value)}
+                    placeholder="https://your-link.com"
+                  />
+                </TabsContent>
+                <TabsContent value="multi" className="mt-4">
+                  <Label htmlFor="multi-text">
+                    URLs or Text (one per line)
+                  </Label>
+                  <Textarea
+                    id="multi-text"
+                    value={multiText}
+                    onChange={(e) => setMultiText(e.target.value)}
+                    placeholder="https://link1.com&#10;https://link2.com"
+                    rows={5}
+                  />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+
+          <div className="hidden lg:block">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-headline">
+                  <Brush className="text-primary" />
+                  Customize
+                </CardTitle>
+                <CardDescription>
+                  Style your QR code to match your brand.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CustomizeContent />
+              </CardContent>
+            </Card>
+          </div>
+
+          <SheetContent className="lg:hidden">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2 font-headline">
+                <Brush className="text-primary" />
+                Customize
+              </SheetTitle>
+              <SheetDescription>
+                Style your QR code to match your brand.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="py-4">
+              <CustomizeContent />
             </div>
-          </CardContent>
-        </Card>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <div className="lg:col-span-1">
