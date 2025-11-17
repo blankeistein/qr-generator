@@ -14,7 +14,7 @@ export default function Home() {
       <main className="relative flex-grow container mx-auto px-4 py-8 z-1">
         <QrGenerator />
       </main>
-      <footer className="text-center p-4 text-muted-foreground text-sm">
+      <footer className="w-full text-center p-4 text-muted-foreground text-sm bg-background">
         Made with ❤️ for U
       </footer>
     </div>
