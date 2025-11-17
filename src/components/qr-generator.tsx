@@ -330,7 +330,7 @@ export default function QrGenerator() {
             </Card>
           </div>
 
-          <SheetContent className="lg:hidden">
+          <SheetContent side="left" className="lg:hidden">
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2 font-headline">
                 <Brush className="text-primary" />
