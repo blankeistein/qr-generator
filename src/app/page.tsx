@@ -9,7 +9,7 @@ export default function Home() {
         <QrGenerator />
       </main>
       <footer className="text-center p-4 text-muted-foreground text-sm">
-        Made with ❤️ for kids and creators.
+        Made with love for U
       </footer>
     </div>
   );
