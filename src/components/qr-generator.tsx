@@ -49,7 +49,7 @@ type QrConfig = {
   fgColor: string;
   bgColor: string;
   level: "L" | "M" | "Q" | "H";
-  marginSize: number;
+  padding: number;
 };
 
 type Format = "png" | "jpeg" | "svg";
@@ -68,7 +68,7 @@ export default function QrGenerator() {
     size: 256,
     fgColor: "#17213a", // dark blue
     bgColor: "#dbe7f9", // soft blue
-    marginSize: 10,
+    padding: 10,
   });
 
   const { toast } = useToast();
@@ -85,24 +85,38 @@ export default function QrGenerator() {
   const handleDownloadSingle = () => {
     if (!singleQrRef.current) return;
 
-    if (format === "svg") {
-      const svgElement = singleQrRef.current.querySelector("svg");
-      if (svgElement) {
-        const svgData = new XMLSerializer().serializeToString(svgElement);
-        const svgBlob = new Blob([svgData], {
-          type: "image/svg+xml;charset=utf-8",
-        });
-        const url = URL.createObjectURL(svgBlob);
-        downloadUrl(url, `qrcode.${format}`);
-      }
-    } else {
-      const canvas = singleQrRef.current.querySelector("canvas");
-      if (canvas) {
-        const url = canvas.toDataURL(`image/${format}`);
-        downloadUrl(url, `qrcode.${format}`);
-      }
+    // Create a temporary canvas for accurate rendering
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    const qrCanvas = singleQrRef.current.querySelector("canvas");
+    const qrSvg = singleQrRef.current.querySelector("svg");
+
+    const sizeWithPadding = config.size + config.padding * 2;
+    canvas.width = sizeWithPadding;
+    canvas.height = sizeWithPadding;
+    
+    // Fill background
+    ctx.fillStyle = config.bgColor;
+    ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
+    
+    if (format === 'svg' && qrSvg) {
+        const svgData = new XMLSerializer().serializeToString(qrSvg);
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, config.padding, config.padding);
+            const url = canvas.toDataURL(`image/png`); // Always download as png from canvas
+            downloadUrl(url, `qrcode.png`);
+        };
+        img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+    } else if (qrCanvas) {
+        ctx.drawImage(qrCanvas, config.padding, config.padding);
+        const url = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
+        downloadUrl(url, `qrcode.${format === 'svg' ? 'png' : format}`);
     }
   };
+
 
   const downloadUrl = (url: string, fileName: string) => {
     const a = document.createElement("a");
@@ -131,29 +145,26 @@ export default function QrGenerator() {
     });
 
     const zip = new JSZip();
-    const canvas = document.createElement("canvas");
-
+    
     for (let i = 0; i < qrCodes.length; i++) {
         const value = qrCodes[i];
         
         // Use a temporary canvas to render each QR code
         const tempCanvas = document.createElement('canvas');
-        const qrCanvas = new QRCodeCanvas({
+        new QRCodeCanvas({
             value: value,
-            size: config.size,
+            size: 128, // smaller size for grid view
             fgColor: config.fgColor,
             bgColor: config.bgColor,
             level: 'Q',
-            marginSize: config.marginSize,
-            includeMargin: true,
         }, tempCanvas);
-
-        const dataUrl = tempCanvas.toDataURL(`image/${format}`);
+        
+        const dataUrl = tempCanvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
         const blob = await (await fetch(dataUrl)).blob();
         
         // Sanitize filename
         const safeFilename = value.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 20);
-        zip.file(`qrcode_${i + 1}_${safeFilename}.${format}`, blob);
+        zip.file(`qrcode_${i + 1}_${safeFilename}.${format === 'svg' ? 'png' : format}`, blob);
     }
 
     zip.generateAsync({ type: "blob" }).then((content) => {
@@ -173,7 +184,7 @@ export default function QrGenerator() {
         });
         console.error(err);
     });
-}, [qrCodes, config, format, toast]);
+}, [qrCodes, config.fgColor, config.bgColor, format, toast]);
 
 
   const QrComponent = format === "svg" ? QRCodeSVG : QRCodeCanvas;
@@ -183,8 +194,6 @@ export default function QrGenerator() {
     fgColor: config.fgColor,
     bgColor: config.bgColor,
     level: "Q" as "L" | "M" | "Q" | "H",
-    marginSize: config.marginSize,
-    includeMargin: true,
   };
 
   const CustomizeContent = () => (
@@ -200,11 +209,11 @@ export default function QrGenerator() {
         />
       </div>
       <div className="space-y-2">
-        <Label>Padding: {config.marginSize}px</Label>
+        <Label>Padding: {config.padding}px</Label>
         <Slider
-          value={[config.marginSize]}
+          value={[config.padding]}
           onValueChange={(v) =>
-            setConfig({ ...config, marginSize: v[0] })
+            setConfig({ ...config, padding: v[0] })
           }
           min={0}
           max={40}
@@ -378,7 +387,8 @@ export default function QrGenerator() {
             {mode === "single" ? (
               <div
                 ref={singleQrRef}
-                className="p-4 bg-card rounded-lg shadow-md transition-all duration-300"
+                className="bg-card rounded-lg shadow-md transition-all duration-300"
+                style={{ backgroundColor: config.bgColor, padding: `${config.padding}px` }}
               >
                 <QrComponent {...qrProps} />
               </div>
@@ -390,6 +400,7 @@ export default function QrGenerator() {
                       <div
                         key={index}
                         className="p-2 bg-card rounded-lg shadow-sm flex flex-col items-center gap-2"
+                        style={{ backgroundColor: config.bgColor }}
                       >
                         <QRCodeSVG
                           value={code}
@@ -397,8 +408,6 @@ export default function QrGenerator() {
                           fgColor={config.fgColor}
                           bgColor={config.bgColor}
                           level="Q"
-                          marginSize={2}
-                          includeMargin
                         />
                          <span className="text-xs text-muted-foreground truncate w-full text-center px-1">
                           {code}
