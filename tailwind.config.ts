@@ -93,6 +93,9 @@ export default {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
       },
+      backgroundImage: {
+        'dot-pattern': 'radial-gradient(circle at 1px 1px, var(--dot-color) 1px, transparent 0)',
+      },
     },
   },
   plugins: [require('tailwindcss-animate')],

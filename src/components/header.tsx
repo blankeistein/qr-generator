@@ -6,7 +6,7 @@ export default function Header() {
   const logo = PlaceHolderImages.find((img) => img.id === "logo");
 
   return (
-    <header className="border-b">
+    <header className="relative z-10 border-b bg-background">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
