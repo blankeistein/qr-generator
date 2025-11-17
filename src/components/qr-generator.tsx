@@ -57,8 +57,8 @@ export default function QrGenerator() {
 
   const [config, setConfig] = useState({
     size: 256,
-    fgColor: "#1c1917", // dark brown, from foreground color
-    bgColor: "#faf2dd", // soft yellow, from background color
+    fgColor: "#17213a", // dark blue
+    bgColor: "#dbe7f9", // soft blue
     marginSize: 10,
   });
 
