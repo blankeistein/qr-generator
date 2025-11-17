@@ -179,8 +179,8 @@ export default function QrGenerator() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-1 flex flex-col gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="flex flex-col gap-8">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-headline">
@@ -306,7 +306,7 @@ export default function QrGenerator() {
         </Card>
       </div>
 
-      <div className="lg:col-span-2">
+      <div className="lg:col-span-1">
         <Card className="sticky top-8">
           <CardHeader>
             <CardTitle className="flex items-center justify-between font-headline">
@@ -344,7 +344,7 @@ export default function QrGenerator() {
             ) : (
               <div className="w-full h-96 overflow-y-auto">
                 {qrCodes.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-4 p-2">
                     {qrCodes.map((code, index) => (
                       <div
                         key={index}
