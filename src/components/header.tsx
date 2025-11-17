@@ -31,7 +31,7 @@ export default function Header() {
                     <path d="M8 16v4" />
                     <path d="M8 8v2a2 2 0 0 1-2 2H4" />
                 </svg>
-                Qreator Kids
+                QR Generator
              </div>
           </div>
           <ThemeToggle />

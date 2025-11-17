@@ -4,7 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'Qreator Kids',
+  title: 'QR Generator',
   description: 'A friendly QR code generator for everyone!',
 };
 
