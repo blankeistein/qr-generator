@@ -10,6 +10,7 @@ import {
   Files,
   Package,
   QrCode,
+  Settings,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -183,9 +184,14 @@ export default function QrGenerator() {
       <div className="flex flex-col gap-8">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-headline">
-              <QrCode className="text-primary" />
-              Your Data
+            <CardTitle className="flex items-center justify-between font-headline">
+              <div className="flex items-center gap-2">
+                <QrCode className="text-primary" />
+                Your Data
+              </div>
+              <Button variant="ghost" size="icon">
+                <Settings className="h-5 w-5" />
+              </Button>
             </CardTitle>
             <CardDescription>
               Enter text for single or multiple QR codes.
