@@ -111,7 +111,18 @@ export default function QrGenerator() {
         };
         img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
     } else if (qrCanvas) {
-        ctx.drawImage(qrCanvas, config.padding, config.padding);
+        // For qrcode.react's Canvas, we draw it onto our temporary canvas with padding
+        const tempCanvas = document.createElement("canvas");
+        const qrCanvasComponent = new QRCodeCanvas({
+            value: singleText,
+            size: config.size,
+            fgColor: config.fgColor,
+            bgColor: "transparent", // We handle bg color on our main canvas
+            level: "Q",
+        }, tempCanvas);
+        
+        ctx.drawImage(tempCanvas, config.padding, config.padding);
+
         const url = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
         downloadUrl(url, `qrcode.${format === 'svg' ? 'png' : format}`);
     }
@@ -123,7 +134,7 @@ export default function QrGenerator() {
     a.href = url;
     a.download = fileName;
     document.body.appendChild(a);
-    a.click();
+a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
@@ -145,21 +156,37 @@ export default function QrGenerator() {
     });
 
     const zip = new JSZip();
-    
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+        setIsDownloading(false);
+        toast({ title: "Error", description: "Could not create canvas context.", variant: "destructive" });
+        return;
+    }
+
     for (let i = 0; i < qrCodes.length; i++) {
         const value = qrCodes[i];
         
+        const sizeWithPadding = config.size + config.padding * 2;
+        canvas.width = sizeWithPadding;
+        canvas.height = sizeWithPadding;
+
         // Use a temporary canvas to render each QR code
         const tempCanvas = document.createElement('canvas');
         new QRCodeCanvas({
             value: value,
-            size: 128, // smaller size for grid view
+            size: config.size,
             fgColor: config.fgColor,
             bgColor: config.bgColor,
             level: 'Q',
         }, tempCanvas);
+
+        ctx.fillStyle = config.bgColor;
+        ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
+        ctx.drawImage(tempCanvas, config.padding, config.padding);
         
-        const dataUrl = tempCanvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
+        const dataUrl = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
         const blob = await (await fetch(dataUrl)).blob();
         
         // Sanitize filename
@@ -184,7 +211,7 @@ export default function QrGenerator() {
         });
         console.error(err);
     });
-}, [qrCodes, config.fgColor, config.bgColor, format, toast]);
+}, [qrCodes, config, format, toast]);
 
 
   const QrComponent = format === "svg" ? QRCodeSVG : QRCodeCanvas;
@@ -192,14 +219,57 @@ export default function QrGenerator() {
     value: singleText,
     size: config.size,
     fgColor: config.fgColor,
-    bgColor: config.bgColor,
+    bgColor: "transparent", // Background is handled by the wrapping div
     level: "Q" as "L" | "M" | "Q" | "H",
   };
+
+  const handleSizeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow empty input to clear it, otherwise parse as number
+    if (value === "") {
+      setConfig({ ...config, size: 0 });
+    } else {
+      let newSize = parseInt(value, 10);
+      if (!isNaN(newSize)) {
+        // Clamp the value
+        newSize = Math.max(64, Math.min(1024, newSize));
+        setConfig({ ...config, size: newSize });
+      }
+    }
+  };
+
+  const handlePaddingInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === "") {
+        setConfig({ ...config, padding: 0 });
+    } else {
+        let newPadding = parseInt(value, 10);
+        if (!isNaN(newPadding)) {
+            newPadding = Math.max(0, Math.min(40, newPadding));
+            setConfig({ ...config, padding: newPadding });
+        }
+    }
+  };
+
 
   const CustomizeContent = () => (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label>Size: {config.size}px</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="size-input">Size</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="size-input"
+              type="number"
+              value={config.size}
+              onChange={handleSizeInputChange}
+              className="w-20 text-center"
+              min={64}
+              max={1024}
+            />
+            <span>px</span>
+          </div>
+        </div>
         <Slider
           value={[config.size]}
           onValueChange={(v) => setConfig({ ...config, size: v[0] })}
@@ -209,7 +279,21 @@ export default function QrGenerator() {
         />
       </div>
       <div className="space-y-2">
-        <Label>Padding: {config.padding}px</Label>
+        <div className="flex items-center justify-between">
+            <Label htmlFor="padding-input">Padding</Label>
+            <div className="flex items-center gap-2">
+                <Input
+                id="padding-input"
+                type="number"
+                value={config.padding}
+                onChange={handlePaddingInputChange}
+                className="w-20 text-center"
+                min={0}
+                max={40}
+                />
+                <span>px</span>
+            </div>
+        </div>
         <Slider
           value={[config.padding]}
           onValueChange={(v) =>
@@ -429,3 +513,5 @@ export default function QrGenerator() {
     </div>
   );
 }
+
+    
