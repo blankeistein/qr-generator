@@ -70,6 +70,9 @@ export default function QrGenerator() {
     bgColor: "#ffffff",
     padding: 10,
   });
+  
+  const [inputValue, setInputValue] = useState(config.size.toString());
+
 
   const { toast } = useToast();
   const singleQrRef = useRef<HTMLDivElement>(null);
@@ -81,6 +84,10 @@ export default function QrGenerator() {
       .filter((line) => line.length > 0);
     setQrCodes(lines);
   }, [multiText]);
+  
+  useEffect(() => {
+    setInputValue(config.size.toString());
+  }, [config.size]);
 
   const handleDownloadSingle = () => {
     if (!singleQrRef.current) return;
@@ -105,19 +112,23 @@ export default function QrGenerator() {
         const svgData = new XMLSerializer().serializeToString(qrSvg);
         const img = new Image();
         img.onload = () => {
-            ctx.drawImage(img, config.padding, config.padding);
+            ctx.drawImage(img, config.padding, config.padding, config.size, config.size);
             const url = canvas.toDataURL(`image/png`); // Always download as png from canvas
             downloadUrl(url, `qrcode.png`);
         };
         img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
     } else if (qrCanvas) {
-        // For qrcode.react's Canvas, we draw it onto our temporary canvas with padding
+        ctx.drawImage(qrCanvas, config.padding, config.padding);
+        const url = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
+        downloadUrl(url, `qrcode.${format === 'svg' ? 'png' : format}`);
+    } else if (format !== 'svg') {
+        // Fallback for when canvas isn't rendered yet (e.g. if single tab isn't active)
         const tempCanvas = document.createElement("canvas");
-        const qrCanvasComponent = new QRCodeCanvas({
+        new QRCodeCanvas({
             value: singleText,
             size: config.size,
             fgColor: config.fgColor,
-            bgColor: "transparent", // We handle bg color on our main canvas
+            bgColor: "transparent",
             level: "Q",
         }, tempCanvas);
         
@@ -171,19 +182,20 @@ a.click();
         const sizeWithPadding = config.size + config.padding * 2;
         canvas.width = sizeWithPadding;
         canvas.height = sizeWithPadding;
-
+        
+        ctx.fillStyle = config.bgColor;
+        ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
+        
         // Use a temporary canvas to render each QR code
         const tempCanvas = document.createElement('canvas');
         new QRCodeCanvas({
             value: value,
             size: config.size,
             fgColor: config.fgColor,
-            bgColor: config.bgColor,
+            bgColor: "transparent",
             level: 'Q',
         }, tempCanvas);
-
-        ctx.fillStyle = config.bgColor;
-        ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
+        
         ctx.drawImage(tempCanvas, config.padding, config.padding);
         
         const dataUrl = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
@@ -219,24 +231,25 @@ a.click();
     value: singleText,
     size: config.size,
     fgColor: config.fgColor,
-    bgColor: "transparent", // Background is handled by the wrapping div
+    bgColor: "transparent",
     level: "Q" as "L" | "M" | "Q" | "H",
   };
-
+  
   const handleSizeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Allow empty input to clear it, otherwise parse as number
-    if (value === "") {
-      setConfig({ ...config, size: 0 });
+    setInputValue(e.target.value);
+  };
+
+  const handleSizeInputBlur = () => {
+    let newSize = parseInt(inputValue, 10);
+    if (!isNaN(newSize)) {
+      newSize = Math.max(64, Math.min(1024, newSize));
+      setConfig({ ...config, size: newSize });
     } else {
-      let newSize = parseInt(value, 10);
-      if (!isNaN(newSize)) {
-        // Clamp the value
-        newSize = Math.max(64, Math.min(1024, newSize));
-        setConfig({ ...config, size: newSize });
-      }
+      // Reset to current config size if input is invalid
+      setInputValue(config.size.toString());
     }
   };
+
 
   const handlePaddingInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -261,8 +274,9 @@ a.click();
             <Input
               id="size-input"
               type="number"
-              value={config.size}
+              value={inputValue}
               onChange={handleSizeInputChange}
+              onBlur={handleSizeInputBlur}
               className="w-20 text-center"
               min={64}
               max={1024}
@@ -513,5 +527,3 @@ a.click();
     </div>
   );
 }
-
-    
