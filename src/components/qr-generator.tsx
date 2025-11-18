@@ -125,19 +125,23 @@ export default function QrGenerator() {
     } else if (qrCanvas) {
       drawQrAndDownload(qrCanvas);
     } else {
-      // Fallback to render a new QR code on a temporary canvas
-      const tempCanvas = document.createElement("canvas");
-      const qrCodeInstance = new QRCodeCanvas({
-        value: singleText,
-        size: config.size,
-        fgColor: config.fgColor,
-        bgColor: "transparent",
-        level: "Q",
-      }, tempCanvas);
-      // The instance needs to be rendered to the canvas, but the library doesn't expose a direct render method.
-      // This fallback might not work as intended without a way to trigger the render.
-      // For now, we will assume qrCanvas or qrSvg will be available.
-      if (qrCanvas) drawQrAndDownload(qrCanvas);
+      const qrcode = require('qrcode');
+      qrcode.toCanvas(singleText, {
+        width: config.size,
+        margin: 0,
+        color: { dark: config.fgColor, light: config.bgColor }
+      }, (err: any, tempCanvas: HTMLCanvasElement) => {
+        if (err) {
+            toast({ title: "Error", description: "Could not generate QR code for download.", variant: "destructive" });
+            return;
+        }
+        ctx.fillStyle = config.bgColor;
+        ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
+        ctx.drawImage(tempCanvas, config.padding, config.padding);
+        const formatToUse = config.format === 'svg' ? 'png' : config.format;
+        const url = canvas.toDataURL(`image/${formatToUse}`);
+        downloadUrl(url, `qrcode.${formatToUse}`);
+      });
     }
   };
 
@@ -147,7 +151,7 @@ export default function QrGenerator() {
     a.href = url;
     a.download = fileName;
     document.body.appendChild(a);
-    a.click();
+a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
@@ -179,33 +183,11 @@ export default function QrGenerator() {
     }
     const formatToUse = config.format === 'svg' ? 'png' : config.format;
 
+    const qrcode = require('qrcode');
+
     for (let i = 0; i < qrCodes.length; i++) {
       const value = qrCodes[i];
       
-      const tempDiv = document.createElement('div');
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      document.body.appendChild(tempDiv);
-      
-      const tempCanvas = document.createElement('canvas');
-      tempDiv.appendChild(tempCanvas);
-
-      // This is a workaround. We need to actually render the component to get the canvas data.
-      // The 'qrcode.react' library doesn't provide a simple non-component way to get canvas data.
-      // A better library for this use case might be 'qrcode'.
-      // For now, we'll use a trick to render it off-screen.
-      const qrComponent = (
-        <QRCodeCanvas
-          value={value}
-          size={config.size}
-          fgColor={config.fgColor}
-          bgColor="transparent"
-          level="Q"
-        />
-      );
-
-      // We need ReactDOM to render this, which is not ideal in a callback.
-      // Let's create the QR code manually to avoid react rendering.
       const sizeWithPadding = config.size + config.padding * 2;
       mainCanvas.width = sizeWithPadding;
       mainCanvas.height = sizeWithPadding;
@@ -213,39 +195,18 @@ export default function QrGenerator() {
       mainCtx.fillStyle = config.bgColor;
       mainCtx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
       
-      // Render QRCode to a temporary canvas, then draw that to the main canvas
-      const qrTempCanvas = document.createElement('canvas');
-      // To avoid the hook issue, we can't use QRCodeCanvas component here.
-      // We will have to find another way or library. 'qrcode' (the base library) is better for this.
-      // For now, let's try to get it from a rendered component.
-      
-      const qrSvgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      const svgComponent = <QRCodeSVG value={value} size={config.size} fgColor={config.fgColor} bgColor="transparent" level="Q"/>
-      
-      // This is still using React which is the root of the problem.
-      // The right way is to use a library that draws on canvas directly.
-      const qrcode = require('qrcode');
-      
       try {
-        const qrDataUrl = await qrcode.toDataURL(value, {
+        const qrTempCanvas = document.createElement('canvas');
+        await qrcode.toCanvas(qrTempCanvas, value, {
             width: config.size,
             margin: 0,
             color: {
                 dark: config.fgColor,
                 light: '#00000000' // transparent
             },
-            type: 'image/png'
         });
 
-        const img = new Image();
-        img.src = qrDataUrl;
-        
-        await new Promise<void>((resolve) => {
-            img.onload = () => {
-                mainCtx.drawImage(img, config.padding, config.padding);
-                resolve();
-            }
-        });
+        mainCtx.drawImage(qrTempCanvas, config.padding, config.padding);
 
         const dataUrl = mainCanvas.toDataURL(`image/${formatToUse}`);
         const blob = await (await fetch(dataUrl)).blob();
@@ -412,10 +373,14 @@ export default function QrGenerator() {
             {mode === "single" ? (
               <div
                 ref={singleQrRef}
-                className="bg-card inline-block rounded-lg shadow-md transition-all duration-300"
-                style={{ backgroundColor: config.bgColor, padding: `${config.padding}px` }}
+                className="w-full h-full flex items-center justify-center"
               >
-                <QrComponent {...qrProps} />
+                <div
+                  className="bg-card inline-block rounded-lg shadow-md transition-all duration-300 max-w-full"
+                  style={{ backgroundColor: config.bgColor, padding: `${config.padding}px` }}
+                >
+                  <QrComponent {...qrProps} style={{ width: '100%', height: '100%', maxWidth: config.size }} />
+                </div>
               </div>
             ) : (
               <div className="w-full h-96 overflow-y-auto">
