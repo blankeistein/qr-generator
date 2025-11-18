@@ -11,6 +11,7 @@ import {
   Package,
   QrCode,
   Settings,
+  Save,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -41,14 +42,13 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  SheetClose,
 } from "./ui/sheet";
 
 type QrConfig = {
-  value: string;
   size: number;
   fgColor: string;
   bgColor: string;
-  level: "L" | "M" | "Q" | "H";
   padding: number;
 };
 
@@ -63,16 +63,16 @@ export default function QrGenerator() {
   const [qrCodes, setQrCodes] = useState<string[]>([]);
   const [format, setFormat] = useState<Format>("png");
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState<QrConfig>({
     size: 256,
     fgColor: "#000000",
     bgColor: "#ffffff",
     padding: 10,
   });
-  
-  const [inputValue, setInputValue] = useState(config.size.toString());
 
+  const [tempConfig, setTempConfig] = useState<QrConfig>(config);
 
   const { toast } = useToast();
   const singleQrRef = useRef<HTMLDivElement>(null);
@@ -84,45 +84,56 @@ export default function QrGenerator() {
       .filter((line) => line.length > 0);
     setQrCodes(lines);
   }, [multiText]);
-  
+
   useEffect(() => {
-    setInputValue(config.size.toString());
-  }, [config.size]);
+    // When the sheet is opened, sync tempConfig with the actual config
+    if (isSheetOpen) {
+      setTempConfig(config);
+    }
+  }, [isSheetOpen, config]);
+
+  const handleApplyChanges = () => {
+    setConfig(tempConfig);
+    toast({
+      title: "Changes Applied",
+      description: "Your QR code has been updated with the new style.",
+    });
+    setIsSheetOpen(false); // Close sheet on mobile after applying
+  };
 
   const handleDownloadSingle = () => {
     if (!singleQrRef.current) return;
 
-    // Create a temporary canvas for accurate rendering
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    
+
     const qrCanvas = singleQrRef.current.querySelector("canvas");
     const qrSvg = singleQrRef.current.querySelector("svg");
 
     const sizeWithPadding = config.size + config.padding * 2;
     canvas.width = sizeWithPadding;
     canvas.height = sizeWithPadding;
-    
-    // Fill background
+
     ctx.fillStyle = config.bgColor;
     ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
-    
+
+    const drawQrAndDownload = (qrElement: HTMLCanvasElement | HTMLImageElement) => {
+        ctx.drawImage(qrElement, config.padding, config.padding, config.size, config.size);
+        const formatToUse = format === 'svg' ? 'png' : format;
+        const url = canvas.toDataURL(`image/${formatToUse}`);
+        downloadUrl(url, `qrcode.${formatToUse}`);
+    };
+
     if (format === 'svg' && qrSvg) {
         const svgData = new XMLSerializer().serializeToString(qrSvg);
         const img = new Image();
-        img.onload = () => {
-            ctx.drawImage(img, config.padding, config.padding, config.size, config.size);
-            const url = canvas.toDataURL(`image/png`); // Always download as png from canvas
-            downloadUrl(url, `qrcode.png`);
-        };
-        img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+        img.onload = () => drawQrAndDownload(img);
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
     } else if (qrCanvas) {
-        ctx.drawImage(qrCanvas, config.padding, config.padding);
-        const url = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
-        downloadUrl(url, `qrcode.${format === 'svg' ? 'png' : format}`);
-    } else if (format !== 'svg') {
-        // Fallback for when canvas isn't rendered yet (e.g. if single tab isn't active)
+        drawQrAndDownload(qrCanvas);
+    } else {
+        // Fallback to render a new QR code on a temporary canvas
         const tempCanvas = document.createElement("canvas");
         new QRCodeCanvas({
             value: singleText,
@@ -131,11 +142,7 @@ export default function QrGenerator() {
             bgColor: "transparent",
             level: "Q",
         }, tempCanvas);
-        
-        ctx.drawImage(tempCanvas, config.padding, config.padding);
-
-        const url = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
-        downloadUrl(url, `qrcode.${format === 'svg' ? 'png' : format}`);
+        drawQrAndDownload(tempCanvas);
     }
   };
 
@@ -145,7 +152,7 @@ export default function QrGenerator() {
     a.href = url;
     a.download = fileName;
     document.body.appendChild(a);
-a.click();
+    a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
@@ -175,6 +182,7 @@ a.click();
         toast({ title: "Error", description: "Could not create canvas context.", variant: "destructive" });
         return;
     }
+    const formatToUse = format === 'svg' ? 'png' : format;
 
     for (let i = 0; i < qrCodes.length; i++) {
         const value = qrCodes[i];
@@ -186,7 +194,6 @@ a.click();
         ctx.fillStyle = config.bgColor;
         ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
         
-        // Use a temporary canvas to render each QR code
         const tempCanvas = document.createElement('canvas');
         new QRCodeCanvas({
             value: value,
@@ -198,12 +205,11 @@ a.click();
         
         ctx.drawImage(tempCanvas, config.padding, config.padding);
         
-        const dataUrl = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`);
+        const dataUrl = canvas.toDataURL(`image/${formatToUse}`);
         const blob = await (await fetch(dataUrl)).blob();
         
-        // Sanitize filename
         const safeFilename = value.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 20);
-        zip.file(`qrcode_${i + 1}_${safeFilename}.${format === 'svg' ? 'png' : format}`, blob);
+        zip.file(`qrcode_${i + 1}_${safeFilename}.${formatToUse}`, blob);
     }
 
     zip.generateAsync({ type: "blob" }).then((content) => {
@@ -234,137 +240,147 @@ a.click();
     bgColor: "transparent",
     level: "Q" as "L" | "M" | "Q" | "H",
   };
-  
-  const handleSizeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
-  };
 
-  const handleSizeInputBlur = () => {
-    let newSize = parseInt(inputValue, 10);
-    if (!isNaN(newSize)) {
-      newSize = Math.max(64, Math.min(1024, newSize));
-      setConfig({ ...config, size: newSize });
-    } else {
-      // Reset to current config size if input is invalid
-      setInputValue(config.size.toString());
-    }
-  };
+  const CustomizeContent = () => {
+    const [sizeInput, setSizeInput] = useState(tempConfig.size.toString());
+    const [paddingInput, setPaddingInput] = useState(tempConfig.padding.toString());
 
+    useEffect(() => {
+        setSizeInput(tempConfig.size.toString())
+    }, [tempConfig.size])
+    
+    useEffect(() => {
+        setPaddingInput(tempConfig.padding.toString())
+    }, [tempConfig.padding])
 
-  const handlePaddingInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === "") {
-        setConfig({ ...config, padding: 0 });
-    } else {
-        let newPadding = parseInt(value, 10);
+    const handleSizeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSizeInput(e.target.value);
+    };
+
+    const handleSizeInputBlur = () => {
+        let newSize = parseInt(sizeInput, 10);
+        if (!isNaN(newSize)) {
+            newSize = Math.max(64, Math.min(1024, newSize));
+            setTempConfig({ ...tempConfig, size: newSize });
+        } else {
+            setSizeInput(tempConfig.size.toString());
+        }
+    };
+    
+    const handlePaddingInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setPaddingInput(e.target.value)
+    };
+
+    const handlePaddingInputBlur = () => {
+        let newPadding = parseInt(paddingInput, 10);
         if (!isNaN(newPadding)) {
             newPadding = Math.max(0, Math.min(40, newPadding));
-            setConfig({ ...config, padding: newPadding });
+            setTempConfig({ ...tempConfig, padding: newPadding });
+        } else {
+            setPaddingInput(tempConfig.padding.toString());
         }
     }
-  };
 
-
-  const CustomizeContent = () => (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="size-input">Size</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="size-input"
-              type="number"
-              value={inputValue}
-              onChange={handleSizeInputChange}
-              onBlur={handleSizeInputBlur}
-              className="w-20 text-center"
-              min={64}
-              max={1024}
-            />
-            <span>px</span>
-          </div>
-        </div>
-        <Slider
-          value={[config.size]}
-          onValueChange={(v) => setConfig({ ...config, size: v[0] })}
-          min={64}
-          max={1024}
-          step={8}
-        />
-      </div>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-            <Label htmlFor="padding-input">Padding</Label>
-            <div className="flex items-center gap-2">
-                <Input
-                id="padding-input"
-                type="number"
-                value={config.padding}
-                onChange={handlePaddingInputChange}
-                className="w-20 text-center"
-                min={0}
-                max={40}
+    return (
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                    <Label htmlFor="size-input">Size</Label>
+                    <div className="flex items-center gap-2">
+                        <Input
+                            id="size-input"
+                            type="number"
+                            value={sizeInput}
+                            onChange={handleSizeInputChange}
+                            onBlur={handleSizeInputBlur}
+                            className="w-20 text-center"
+                            min={64}
+                            max={1024}
+                        />
+                        <span>px</span>
+                    </div>
+                </div>
+                <Slider
+                    value={[tempConfig.size]}
+                    onValueChange={(v) => setTempConfig({ ...tempConfig, size: v[0] })}
+                    min={64}
+                    max={1024}
+                    step={8}
                 />
-                <span>px</span>
             </div>
+            <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                    <Label htmlFor="padding-input">Padding</Label>
+                    <div className="flex items-center gap-2">
+                        <Input
+                            id="padding-input"
+                            type="number"
+                            value={paddingInput}
+                            onChange={handlePaddingInputChange}
+                            onBlur={handlePaddingInputBlur}
+                            className="w-20 text-center"
+                            min={0}
+                            max={40}
+                        />
+                        <span>px</span>
+                    </div>
+                </div>
+                <Slider
+                    value={[tempConfig.padding]}
+                    onValueChange={(v) => setTempConfig({ ...tempConfig, padding: v[0] })}
+                    min={0}
+                    max={40}
+                    step={1}
+                />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label>Foreground</Label>
+                    <Input
+                        type="color"
+                        value={tempConfig.fgColor}
+                        onChange={(e) => setTempConfig({ ...tempConfig, fgColor: e.target.value })}
+                        className="p-1 h-10"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Background</Label>
+                    <Input
+                        type="color"
+                        value={tempConfig.bgColor}
+                        onChange={(e) => setTempConfig({ ...tempConfig, bgColor: e.target.value })}
+                        className="p-1 h-10"
+                    />
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label>Image Format</Label>
+                <Select
+                    value={format}
+                    onValueChange={(v) => setFormat(v as Format)}
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="png">PNG</SelectItem>
+                        <SelectItem value="jpeg">JPEG</SelectItem>
+                        <SelectItem value="svg">SVG</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <Button onClick={handleApplyChanges} className="w-full">
+                <Save className="mr-2 h-4 w-4" />
+                Apply Changes
+            </Button>
         </div>
-        <Slider
-          value={[config.padding]}
-          onValueChange={(v) =>
-            setConfig({ ...config, padding: v[0] })
-          }
-          min={0}
-          max={40}
-          step={1}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Foreground</Label>
-          <Input
-            type="color"
-            value={config.fgColor}
-            onChange={(e) =>
-              setConfig({ ...config, fgColor: e.target.value })
-            }
-            className="p-1"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Background</Label>
-          <Input
-            type="color"
-            value={config.bgColor}
-            onChange={(e) =>
-              setConfig({ ...config, bgColor: e.target.value })
-            }
-            className="p-1"
-          />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label>Image Format</Label>
-        <Select
-          value={format}
-          onValueChange={(v) => setFormat(v as Format)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a format" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="png">PNG</SelectItem>
-            <SelectItem value="jpeg">JPEG</SelectItem>
-            <SelectItem value="svg">SVG</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div className="flex flex-col gap-8">
-        <Sheet>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between font-headline">
@@ -373,7 +389,7 @@ a.click();
                   Your Data
                 </div>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className="lg:hidden">
                     <Settings className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
@@ -437,7 +453,7 @@ a.click();
             </Card>
           </div>
 
-          <SheetContent side="left" className="lg:hidden">
+          <SheetContent side="left" className="lg:hidden w-full max-w-md overflow-y-auto">
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2 font-headline">
                 <Brush className="text-primary" />
@@ -448,7 +464,7 @@ a.click();
               </SheetDescription>
             </SheetHeader>
             <div className="py-4">
-              <CustomizeContent />
+                <CustomizeContent />
             </div>
           </SheetContent>
         </Sheet>
@@ -485,7 +501,7 @@ a.click();
             {mode === "single" ? (
               <div
                 ref={singleQrRef}
-                className="bg-card rounded-lg shadow-md transition-all duration-300"
+                className="bg-card inline-block rounded-lg shadow-md transition-all duration-300"
                 style={{ backgroundColor: config.bgColor, padding: `${config.padding}px` }}
               >
                 <QrComponent {...qrProps} />
@@ -500,13 +516,15 @@ a.click();
                         className="p-2 bg-card rounded-lg shadow-sm flex flex-col items-center gap-2"
                         style={{ backgroundColor: config.bgColor }}
                       >
-                        <QRCodeSVG
-                          value={code}
-                          size={128}
-                          fgColor={config.fgColor}
-                          bgColor={config.bgColor}
-                          level="Q"
-                        />
+                        <div style={{padding: `${config.padding}px`}}>
+                            <QRCodeSVG
+                                value={code}
+                                size={128}
+                                fgColor={config.fgColor}
+                                bgColor="transparent"
+                                level="Q"
+                            />
+                        </div>
                          <span className="text-xs text-muted-foreground truncate w-full text-center px-1">
                           {code}
                         </span>
