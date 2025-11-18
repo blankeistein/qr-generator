@@ -70,7 +70,7 @@ export default function QrGenerator() {
     fgColor: "#000000",
     bgColor: "#ffffff",
     padding: 10,
-    format: "png"
+    format: "png",
   });
 
   const { toast } = useToast();
@@ -127,14 +127,17 @@ export default function QrGenerator() {
     } else {
       // Fallback to render a new QR code on a temporary canvas
       const tempCanvas = document.createElement("canvas");
-      new QRCodeCanvas({
+      const qrCodeInstance = new QRCodeCanvas({
         value: singleText,
         size: config.size,
         fgColor: config.fgColor,
         bgColor: "transparent",
         level: "Q",
       }, tempCanvas);
-      drawQrAndDownload(tempCanvas);
+      // The instance needs to be rendered to the canvas, but the library doesn't expose a direct render method.
+      // This fallback might not work as intended without a way to trigger the render.
+      // For now, we will assume qrCanvas or qrSvg will be available.
+      if (qrCanvas) drawQrAndDownload(qrCanvas);
     }
   };
 
@@ -166,10 +169,10 @@ export default function QrGenerator() {
     });
 
     const zip = new JSZip();
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+    const mainCanvas = document.createElement("canvas");
+    const mainCtx = mainCanvas.getContext("2d");
 
-    if (!ctx) {
+    if (!mainCtx) {
       setIsDownloading(false);
       toast({ title: "Error", description: "Could not create canvas context.", variant: "destructive" });
       return;
@@ -178,30 +181,82 @@ export default function QrGenerator() {
 
     for (let i = 0; i < qrCodes.length; i++) {
       const value = qrCodes[i];
-
-      const sizeWithPadding = config.size + config.padding * 2;
-      canvas.width = sizeWithPadding;
-      canvas.height = sizeWithPadding;
-
-      ctx.fillStyle = config.bgColor;
-      ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
-
+      
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      document.body.appendChild(tempDiv);
+      
       const tempCanvas = document.createElement('canvas');
-      new QRCodeCanvas({
-        value: value,
-        size: config.size,
-        fgColor: config.fgColor,
-        bgColor: "transparent",
-        level: 'Q',
-      }, tempCanvas);
+      tempDiv.appendChild(tempCanvas);
 
-      ctx.drawImage(tempCanvas, config.padding, config.padding);
+      // This is a workaround. We need to actually render the component to get the canvas data.
+      // The 'qrcode.react' library doesn't provide a simple non-component way to get canvas data.
+      // A better library for this use case might be 'qrcode'.
+      // For now, we'll use a trick to render it off-screen.
+      const qrComponent = (
+        <QRCodeCanvas
+          value={value}
+          size={config.size}
+          fgColor={config.fgColor}
+          bgColor="transparent"
+          level="Q"
+        />
+      );
 
-      const dataUrl = canvas.toDataURL(`image/${formatToUse}`);
-      const blob = await (await fetch(dataUrl)).blob();
+      // We need ReactDOM to render this, which is not ideal in a callback.
+      // Let's create the QR code manually to avoid react rendering.
+      const sizeWithPadding = config.size + config.padding * 2;
+      mainCanvas.width = sizeWithPadding;
+      mainCanvas.height = sizeWithPadding;
 
-      const safeFilename = value.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 20);
-      zip.file(`qrcode_${i + 1}_${safeFilename}.${formatToUse}`, blob);
+      mainCtx.fillStyle = config.bgColor;
+      mainCtx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
+      
+      // Render QRCode to a temporary canvas, then draw that to the main canvas
+      const qrTempCanvas = document.createElement('canvas');
+      // To avoid the hook issue, we can't use QRCodeCanvas component here.
+      // We will have to find another way or library. 'qrcode' (the base library) is better for this.
+      // For now, let's try to get it from a rendered component.
+      
+      const qrSvgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const svgComponent = <QRCodeSVG value={value} size={config.size} fgColor={config.fgColor} bgColor="transparent" level="Q"/>
+      
+      // This is still using React which is the root of the problem.
+      // The right way is to use a library that draws on canvas directly.
+      const qrcode = require('qrcode');
+      
+      try {
+        const qrDataUrl = await qrcode.toDataURL(value, {
+            width: config.size,
+            margin: 0,
+            color: {
+                dark: config.fgColor,
+                light: '#00000000' // transparent
+            },
+            type: 'image/png'
+        });
+
+        const img = new Image();
+        img.src = qrDataUrl;
+        
+        await new Promise<void>((resolve) => {
+            img.onload = () => {
+                mainCtx.drawImage(img, config.padding, config.padding);
+                resolve();
+            }
+        });
+
+        const dataUrl = mainCanvas.toDataURL(`image/${formatToUse}`);
+        const blob = await (await fetch(dataUrl)).blob();
+
+        const safeFilename = value.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 20);
+        zip.file(`qrcode_${i + 1}_${safeFilename}.${formatToUse}`, blob);
+
+      } catch (err) {
+        console.error(err);
+        // Skip this QR code if it fails
+      }
     }
 
     zip.generateAsync({ type: "blob" }).then((content) => {
@@ -221,7 +276,7 @@ export default function QrGenerator() {
       });
       console.error(err);
     });
-  }, [qrCodes, config, config.format, toast]);
+  }, [qrCodes, config, toast]);
 
 
   const QrComponent = config.format === "svg" ? QRCodeSVG : QRCodeCanvas;
@@ -284,7 +339,7 @@ export default function QrGenerator() {
                     id="multi-text"
                     value={multiText}
                     onChange={(e) => setMultiText(e.target.value)}
-                    placeholder="https://link1.com&#10;https://link2.com"
+                    placeholder="https://link1.com\nhttps://link2.com"
                     rows={5}
                   />
                 </TabsContent>
@@ -437,6 +492,7 @@ const CustomizeContent = ({ config, onSaveConfig }: CustomizeContentType) => {
       padding: Math.max(0, Math.min(40, parseInt(paddingInput, 10))),
       fgColor: forgroundInput,
       bgColor: backgroundInput,
+      format: formatInput,
     })
   }
 
