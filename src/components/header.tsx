@@ -8,7 +8,8 @@ export default function Header() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 font-headline text-2xl font-bold text-foreground">
-              <QrCode className="h-7 w-7 text-primary" />
+              {/* <QrCode className="h-7 w-7 text-primary" /> */}
+              <img src="/icon.png" className="size-10" />
               QR Generator
             </div>
           </div>
