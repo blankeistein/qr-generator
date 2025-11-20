@@ -401,7 +401,7 @@ a.click();
                             level="Q"
                           />
                         </div>
-                        <span className="text-xs text-muted-foreground truncate w-full text-center px-1">
+                        <span className="text-xs text-foreground truncate w-full text-center px-1">
                           {code}
                         </span>
                       </div>
