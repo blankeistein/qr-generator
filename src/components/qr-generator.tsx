@@ -376,7 +376,7 @@ a.click();
                 className="w-full h-full flex items-center justify-center"
               >
                 <div
-                  className="bg-card inline-block rounded-lg shadow-md transition-all duration-300 max-w-full"
+                  className="bg-card inline-block rounded-lg transition-all duration-300 max-w-full border-2"
                   style={{ backgroundColor: config.bgColor, padding: `${config.padding}px` }}
                 >
                   <QrComponent {...qrProps} style={{ width: '100%', height: '100%', maxWidth: config.size }} />
@@ -389,7 +389,7 @@ a.click();
                     {qrCodes.map((code, index) => (
                       <div
                         key={index}
-                        className="p-2 bg-card rounded-lg shadow-sm flex flex-col items-center gap-2"
+                        className="p-2 bg-card rounded-lg flex flex-col items-center gap-2 border-2"
                         style={{ backgroundColor: config.bgColor }}
                       >
                         <div style={{ padding: `${config.padding}px` }}>
