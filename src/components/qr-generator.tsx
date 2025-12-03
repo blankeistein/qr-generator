@@ -132,8 +132,8 @@ export default function QrGenerator() {
         color: { dark: config.fgColor, light: config.bgColor }
       }, (err: any, tempCanvas: HTMLCanvasElement) => {
         if (err) {
-            toast({ title: "Error", description: "Could not generate QR code for download.", variant: "destructive" });
-            return;
+          toast({ title: "Error", description: "Could not generate QR code for download.", variant: "destructive" });
+          return;
         }
         ctx.fillStyle = config.bgColor;
         ctx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
@@ -151,7 +151,7 @@ export default function QrGenerator() {
     a.href = url;
     a.download = fileName;
     document.body.appendChild(a);
-a.click();
+    a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
@@ -187,23 +187,23 @@ a.click();
 
     for (let i = 0; i < qrCodes.length; i++) {
       const value = qrCodes[i];
-      
+
       const sizeWithPadding = config.size + config.padding * 2;
       mainCanvas.width = sizeWithPadding;
       mainCanvas.height = sizeWithPadding;
 
       mainCtx.fillStyle = config.bgColor;
       mainCtx.fillRect(0, 0, sizeWithPadding, sizeWithPadding);
-      
+
       try {
         const qrTempCanvas = document.createElement('canvas');
         await qrcode.toCanvas(qrTempCanvas, value, {
-            width: config.size,
-            margin: 0,
-            color: {
-                dark: config.fgColor,
-                light: '#00000000' // transparent
-            },
+          width: config.size,
+          margin: 0,
+          color: {
+            dark: config.fgColor,
+            light: '#00000000' // transparent
+          },
         });
 
         mainCtx.drawImage(qrTempCanvas, config.padding, config.padding);
@@ -275,7 +275,7 @@ a.click();
                 value={mode}
                 onValueChange={(v) => setMode(v as "single" | "multi")}
               >
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-2 h-12">
                   <TabsTrigger value="single">
                     <FileText className="mr-2 h-4 w-4" /> Single
                   </TabsTrigger>
