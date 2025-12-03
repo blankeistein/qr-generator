@@ -53,6 +53,9 @@ type QrConfig = {
   bgColor: string;
   padding: number;
   format: Format;
+  logoImage: string | null;
+  logoPadding: number;
+  logoSize: number;
 };
 
 export default function QrGenerator() {
@@ -71,6 +74,9 @@ export default function QrGenerator() {
     bgColor: "#ffffff",
     padding: 10,
     format: "png",
+    logoImage: null,
+    logoPadding: 5,
+    logoSize: 50,
   });
 
   const { toast } = useToast();
@@ -112,9 +118,30 @@ export default function QrGenerator() {
 
     const drawQrAndDownload = (qrElement: HTMLCanvasElement | HTMLImageElement) => {
       ctx.drawImage(qrElement, config.padding, config.padding, config.size, config.size);
-      const formatToUse = config.format === 'svg' ? 'png' : config.format;
-      const url = canvas.toDataURL(`image/${formatToUse}`);
-      downloadUrl(url, `qrcode.${formatToUse}`);
+
+      if (config.logoImage) {
+        const logoImg = new Image();
+        logoImg.onload = () => {
+          const center = sizeWithPadding / 2;
+          const logoSize = config.logoSize;
+          const logoX = center - logoSize / 2;
+          const logoY = center - logoSize / 2;
+
+          // Add a white background with padding for the logo
+          ctx.fillStyle = config.bgColor;
+          ctx.fillRect(logoX - config.logoPadding, logoY - config.logoPadding, logoSize + config.logoPadding * 2, logoSize + config.logoPadding * 2);
+
+          ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+          const formatToUse = config.format === 'svg' ? 'png' : config.format;
+          const url = canvas.toDataURL(`image/${formatToUse}`);
+          downloadUrl(url, `qrcode.${formatToUse}`);
+        };
+        logoImg.src = config.logoImage;
+      } else {
+        const formatToUse = config.format === 'svg' ? 'png' : config.format;
+        const url = canvas.toDataURL(`image/${formatToUse}`);
+        downloadUrl(url, `qrcode.${formatToUse}`);
+      }
     };
 
     if (config.format === 'svg' && qrSvg) {
@@ -129,7 +156,13 @@ export default function QrGenerator() {
       qrcode.toCanvas(singleText, {
         width: config.size,
         margin: 0,
-        color: { dark: config.fgColor, light: config.bgColor }
+        color: { dark: config.fgColor, light: config.bgColor },
+        image: config.logoImage ? {
+          source: config.logoImage,
+          width: config.logoSize,
+          height: config.logoSize,
+          excavate: true,
+        } : undefined,
       }, (err: any, tempCanvas: HTMLCanvasElement) => {
         if (err) {
           toast({ title: "Error", description: "Could not generate QR code for download.", variant: "destructive" });
@@ -208,6 +241,22 @@ export default function QrGenerator() {
 
         mainCtx.drawImage(qrTempCanvas, config.padding, config.padding);
 
+        if (config.logoImage) {
+          const logoImg = new Image();
+          logoImg.src = config.logoImage;
+          await new Promise(resolve => logoImg.onload = resolve);
+
+          const center = sizeWithPadding / 2;
+          const logoSize = config.logoSize * (config.size / 256);
+          const logoX = center - logoSize / 2;
+          const logoY = center - logoSize / 2;
+
+          mainCtx.fillStyle = config.bgColor;
+          mainCtx.fillRect(logoX - config.logoPadding, logoY - config.logoPadding, logoSize + config.logoPadding * 2, logoSize + config.logoPadding * 2);
+
+          mainCtx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+        }
+
         const dataUrl = mainCanvas.toDataURL(`image/${formatToUse}`);
         const blob = await (await fetch(dataUrl)).blob();
 
@@ -247,6 +296,16 @@ export default function QrGenerator() {
     fgColor: config.fgColor,
     bgColor: "transparent",
     level: "Q" as "L" | "M" | "Q" | "H",
+    imageSettings: config.logoImage
+      ? {
+        src: config.logoImage,
+        height: config.logoSize,
+        width: config.logoSize,
+        excavate: true,
+        x: undefined,
+        y: undefined,
+      }
+      : undefined,
   };
 
   return (
@@ -433,6 +492,11 @@ const CustomizeContent = ({ config, onSaveConfig }: CustomizeContentType) => {
   const [forgroundInput, setForegroundInput] = useState(config.fgColor);
   const [backgroundInput, setBackgroundInput] = useState(config.bgColor);
   const [formatInput, setFormatInput] = useState(config.format);
+  const [logoImage, setLogoImage] = useState<string | null>(config.logoImage);
+  const [logoSize, setLogoSize] = useState(config.logoSize.toString());
+  const [logoPadding, setLogoPadding] = useState(config.logoPadding.toString());
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
 
   useEffect(() => {
     setSizeInput(config.size.toString())
@@ -442,12 +506,50 @@ const CustomizeContent = ({ config, onSaveConfig }: CustomizeContentType) => {
     setPaddingInput(config.padding.toString())
   }, [config.padding])
 
+  useEffect(() => {
+    setLogoImage(config.logoImage);
+  }, [config.logoImage]);
+
+  useEffect(() => {
+    setLogoSize(config.logoSize.toString());
+  }, [config.logoSize]);
+
+  useEffect(() => {
+    setLogoPadding(config.logoPadding.toString());
+  }, [config.logoPadding]);
+
   const handleSizeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSizeInput(e.target.value);
   };
 
   const handlePaddingInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPaddingInput(e.target.value)
+  };
+
+  const handleLogoSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLogoSize(e.target.value);
+  };
+
+  const handleLogoPaddingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLogoPadding(e.target.value);
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoImage(null);
+    if (logoInputRef.current) {
+      logoInputRef.current.value = "";
+    }
   };
 
   const handleSaveConfig = () => {
@@ -458,11 +560,83 @@ const CustomizeContent = ({ config, onSaveConfig }: CustomizeContentType) => {
       fgColor: forgroundInput,
       bgColor: backgroundInput,
       format: formatInput,
+      logoImage: logoImage,
+      logoSize: Math.max(10, Math.min(100, parseInt(logoSize, 10))),
+      logoPadding: Math.max(0, Math.min(20, parseInt(logoPadding, 10))),
     })
   }
 
   return (
     <div className="space-y-6">
+      <div className="space-y-4 rounded-lg border bg-background/30 p-4">
+        <div className="space-y-2">
+          <Label>Logo Image</Label>
+          <Input
+            type="file"
+            accept="image/png, image/jpeg, image/svg+xml"
+            onChange={handleLogoUpload}
+            ref={logoInputRef}
+          />
+          {logoImage && (
+            <div className="flex items-center justify-between mt-2">
+              <img src={logoImage} alt="Logo preview" className="w-12 h-12 rounded-md object-contain border" />
+              <Button variant="ghost" size="sm" onClick={handleRemoveLogo}>Remove</Button>
+            </div>
+          )}
+        </div>
+        {logoImage && (
+          <>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="logo-size-input">Logo Size</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="logo-size-input"
+                    type="number"
+                    value={logoSize}
+                    onChange={handleLogoSizeChange}
+                    className="w-20 text-center"
+                    min={10}
+                    max={100}
+                  />
+                  <span>px</span>
+                </div>
+              </div>
+              <Slider
+                value={[parseInt(logoSize)]}
+                onValueChange={(v) => setLogoSize(v[0].toString())}
+                min={10}
+                max={100}
+                step={1}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="logo-padding-input">Logo Padding</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="logo-padding-input"
+                    type="number"
+                    value={logoPadding}
+                    onChange={handleLogoPaddingChange}
+                    className="w-20 text-center"
+                    min={0}
+                    max={20}
+                  />
+                  <span>px</span>
+                </div>
+              </div>
+              <Slider
+                value={[parseInt(logoPadding)]}
+                onValueChange={(v) => setLogoPadding(v[0].toString())}
+                min={0}
+                max={20}
+                step={1}
+              />
+            </div>
+          </>
+        )}
+      </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="size-input">Size</Label>
@@ -531,6 +705,7 @@ const CustomizeContent = ({ config, onSaveConfig }: CustomizeContentType) => {
           />
         </div>
       </div>
+
       <div className="space-y-2">
         <Label>Image Format</Label>
         <Select
