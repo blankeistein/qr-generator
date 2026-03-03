@@ -1,9 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-  <rect x="3" y="3" width="7" height="7"/>
-  <rect x="14" y="3" width="7" height="7"/>
-  <rect x="3" y="14" width="7" height="7"/>
-  <rect x="14" y="14" width="3" height="3"/>
-  <rect x="19" y="14" width="2" height="2"/>
-  <rect x="14" y="19" width="2" height="2"/>
-  <rect x="18" y="18" width="3" height="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background rounded square -->
+  <rect width="32" height="32" rx="7" fill="#0f172a"/>
+
+  <!-- Top-left QR position square -->
+  <rect x="4" y="4" width="10" height="10" rx="1.5" fill="none" stroke="#e2e8f0" stroke-width="1.5"/>
+  <rect x="7" y="7" width="4" height="4" rx="0.5" fill="#e2e8f0"/>
+
+  <!-- Top-right QR position square -->
+  <rect x="18" y="4" width="10" height="10" rx="1.5" fill="none" stroke="#e2e8f0" stroke-width="1.5"/>
+  <rect x="21" y="7" width="4" height="4" rx="0.5" fill="#e2e8f0"/>
+
+  <!-- Bottom-left QR position square -->
+  <rect x="4" y="18" width="10" height="10" rx="1.5" fill="none" stroke="#e2e8f0" stroke-width="1.5"/>
+  <rect x="7" y="21" width="4" height="4" rx="0.5" fill="#e2e8f0"/>
+
+  <!-- Bottom-right data dots (accent color) -->
+  <rect x="19" y="19" width="3" height="3" rx="0.5" fill="#38bdf8"/>
+  <rect x="23" y="19" width="3" height="3" rx="0.5" fill="#38bdf8" opacity="0.5"/>
+  <rect x="19" y="23" width="3" height="3" rx="0.5" fill="#38bdf8" opacity="0.5"/>
+  <rect x="23" y="23" width="3" height="3" rx="0.5" fill="#38bdf8"/>
 </svg>
